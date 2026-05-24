@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  droprag:
+    build: .
+    ports:
+      - "8766:8766"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./knowledge:/app/knowledge
+    environment:
+      - DROPRAG_CONFIG=/app/config.yaml
+    restart: unless-stopped

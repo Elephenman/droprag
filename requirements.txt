@@ -1,0 +1,23 @@
+# 核心依赖（必装）
+fastapi>=0.100.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+sqlite-vec>=0.1.6
+numpy>=1.24.0
+watchdog>=3.0.0
+pyyaml>=6.0
+chardet>=5.0.0
+
+# 可选依赖（按需安装）
+# pip install droprag[pdf]       - PDF 加载 (pypdf + PyMuPDF)
+# pip install droprag[office]    - Office 文件 (docx/xlsx/pptx)
+# pip install droprag[ocr]       - 图片 OCR
+# pip install droprag[epub]      - EPUB 电子书
+# pip install droprag[html]      - HTML 解析
+# pip install droprag[onnx]      - ONNX 轻量推理（推荐）
+# pip install droprag[torch]     - PyTorch 本地推理
+# pip install droprag[api]       - 外部 API 推理
+# pip install droprag[viz]       - UMAP 可视化
+# pip install droprag[all-loaders] - 全部文件加载器
+# pip install droprag[all]       - 全部安装

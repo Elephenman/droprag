@@ -1,0 +1,143 @@
+# DropRAG 默认配置
+# 环境变量前缀: DROPRAG_ (如 DROPRAG_ENGINE_PORT=8766)
+
+knowledge_base:
+  path: ""                    # 知识库路径，运行 droprag init 时自动填充
+  watch:
+    enabled: true
+    debounce_seconds: 3.0
+    extra_dirs: []
+    ignore:
+      - ".git"
+      - ".obsidian"
+      - "__pycache__"
+      - "*.tmp"
+      - "*.bak"
+      - "*.swp"
+      - "*.lock"
+  ignore:
+    - ".git"
+    - ".obsidian"
+    - ".trash"
+    - "*.tmp"
+    - "*.bak"
+    - "*/.*"
+
+data:
+  dir: "./data"
+
+embedding:
+  provider: "auto"              # auto | local | onnx | api
+  model: "BAAI/bge-small-zh-v1.5"
+  device: "cpu"
+  dimension: 512
+  batch_size: 32
+  model_cache_dir: "./models"
+  # api_url: "http://localhost:11434/api/embeddings"
+  # api_key: null
+
+chunking:
+  default:
+    chunk_size: 500
+    chunk_overlap: 100
+    separators: ["\n\n", "\n", " "]
+  markdown:
+    chunk_size: 500
+    chunk_overlap: 100
+    separators: ["\n## ", "\n### ", "\n#### ", "\n\n", "\n", " "]
+  pdf:
+    chunk_size: 500
+    chunk_overlap: 100
+    separators: ["\n\n", "\n", " "]
+  code:
+    chunk_size: 800
+    chunk_overlap: 150
+    separators: ["\n# ", "\n\n", "\n"]
+  spreadsheet:
+    chunk_size: 300
+    chunk_overlap: 0
+    separators: ["\n"]
+  presentation:
+    chunk_size: 1000
+    chunk_overlap: 50
+    separators: ["\n\n---\n\n", "\n\n", "\n"]
+
+retrieval:
+  level_1:
+    top_k: 3
+    max_chars_per_chunk: 200
+    max_total_chars: 600
+  level_2:
+    top_k: 8
+    max_chars_per_chunk: 300
+    max_total_chars: 2500
+  level_3:
+    top_k: 5
+  min_similarity: 0.3
+
+pipeline:
+  max_file_size_mb: 100
+  enable_cleaning: true
+  enable_classification: true
+  supported_extensions:
+    - ".pdf"
+    - ".docx"
+    - ".doc"
+    - ".pptx"
+    - ".ppt"
+    - ".xlsx"
+    - ".xls"
+    - ".csv"
+    - ".py"
+    - ".js"
+    - ".ts"
+    - ".r"
+    - ".R"
+    - ".ipynb"
+    - ".md"
+    - ".rst"
+    - ".html"
+    - ".htm"
+    - ".json"
+    - ".jsonl"
+    - ".xml"
+    - ".yaml"
+    - ".yml"
+    - ".toml"
+    - ".png"
+    - ".jpg"
+    - ".jpeg"
+    - ".bmp"
+    - ".txt"
+    - ".log"
+    - ".epub"
+
+engine:
+  host: "127.0.0.1"
+  port: 8766
+  cors_origins:
+    - "http://localhost:*"
+    - "tauri://localhost"
+  log_level: "INFO"
+  api_key: null
+
+visualization:
+  umap:
+    n_neighbors: 15
+    min_dist: 0.1
+    metric: "cosine"
+    cache_enabled: true
+    cache_max_age_hours: 24
+
+logging:
+  level: "INFO"
+  file: "./data/droprag.log"
+  max_size_mb: 50
+  backup_count: 3
+
+cache:
+  enabled: true
+  max_query_cache: 100
+  query_ttl_seconds: 3600
+  max_embedding_cache: 5000
+  embedding_ttl_seconds: 86400

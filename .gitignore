@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Data (不要把数据库和缓存推上去)
+data/
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Config overrides (用户可能含密钥)
+config.local.yaml
+.env
