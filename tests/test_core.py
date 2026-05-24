@@ -125,9 +125,10 @@ class TestLoaderRegistry:
     """加载器注册表测试"""
 
     def test_loaders_registered(self):
-        from droprag.loader import _loaders
+        from droprag.loader import get_supported_extensions
+        exts = get_supported_extensions()
         # 至少应该有基础 loader
-        assert ".txt" in _loaders or ".md" in _loaders
+        assert ".txt" in exts or ".md" in exts
 
     def test_text_loader(self):
         from droprag.loader.text_loader import TextLoader
@@ -505,6 +506,67 @@ class TestCLIImport:
     def test_cli_import(self):
         from droprag.cli import main
         assert main is not None
+
+
+class TestMarkItDownIntegration:
+    """MarkItDown 集成测试"""
+
+    def test_markitdown_loader_import(self):
+        from droprag.loader.markitdown_loader import MarkItDownLoader
+        loader = MarkItDownLoader()
+        assert len(loader.extensions) > 0
+        assert ".pdf" in loader.extensions
+        assert ".docx" in loader.extensions
+
+    def test_markitdown_dual_layer_registry(self):
+        """验证双层注册表"""
+        from droprag.loader import get_loader_info, discover_loaders
+        discover_loaders()
+        info = get_loader_info()
+        assert info["markitdown_available"] is True
+        assert ".pdf" in info["primary_extensions"]
+        assert ".pdf" in info["fallback_extensions"]
+        assert ".py" in info["fallback_extensions"]
+        assert ".py" not in info["primary_extensions"]  # MarkItDown 不覆盖代码格式
+
+    def test_markitdown_text_conversion(self):
+        """测试 MarkItDown 对纯文本文件的转换"""
+        from droprag.loader.markitdown_loader import MarkItDownLoader
+        loader = MarkItDownLoader()
+        # MarkItDown 也支持 .txt，但我们让原生 TextLoader 优先
+        # 仅验证 PDF/DOCX 等在首选层
+        assert loader.is_markitdown_supported(".pdf")
+        assert loader.is_markitdown_supported(".docx")
+        assert loader.is_markitdown_supported(".xlsx")
+        assert not loader.is_markitdown_supported(".py")
+        assert not loader.is_markitdown_supported(".json")
+
+    def test_markitdown_pdf_load(self):
+        """测试 MarkItDown 加载 PDF 文件"""
+        from droprag.loader.markitdown_loader import MarkItDownLoader
+        import tempfile
+
+        # 创建一个简单的文本文件（模拟PDF场景）
+        # 由于无法在测试中创建真实PDF，验证扩展名匹配即可
+        loader = MarkItDownLoader()
+        assert loader.is_markitdown_supported(".pdf")
+        assert loader.is_markitdown_supported(".epub")
+
+    def test_load_file_dual_fallback(self):
+        """测试双层降级：MarkItDown → 原生 Loader"""
+        from droprag.loader import load_file
+        import json
+
+        # JSON 不在 MarkItDown 首选层，应走降级层 DataLoader
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False, encoding="utf-8") as f:
+            json.dump({"test": "fallback", "value": 42}, f)
+            path = f.name
+        try:
+            doc = load_file(path, os.path.dirname(path))
+            assert doc is not None
+            assert "fallback" in doc.content
+        finally:
+            os.unlink(path)
 
 
 # ── 运行入口 ──

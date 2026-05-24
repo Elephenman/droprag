@@ -1,7 +1,10 @@
 """DropRAG 插件化加载器系统
 
-LoaderBase 基类 + LoaderRegistry 自动发现注册。
-所有 Loader 声明支持的 extensions，Registry 自动匹配。
+双层 Loader 架构:
+1. MarkItDown 引擎（微软）— 首选，支持 PDF/DOCX/PPTX/XLSX/HTML/EPUB/Image/Audio
+2. 原生 Loader（降级）— MarkItDown 不支持或失败时回退
+
+加载优先级：MarkItDown → 原生 Loader → 失败
 """
 
 import os
@@ -41,38 +44,82 @@ class LoaderBase:
         raise NotImplementedError
 
 
-# ── 注册表 ──
+# ── 注册表（双层） ──
 
-_loaders: Dict[str, LoaderBase] = {}
+_primary_loaders: Dict[str, LoaderBase] = {}    # MarkItDown 首选层
+_fallback_loaders: Dict[str, LoaderBase] = {}   # 原生 Loader 降级层
 _loader_classes: List[Type[LoaderBase]] = []
+_markitdown_available: bool = False
 
 
-def register_loader(loader_class: Type[LoaderBase]):
-    """注册一个 Loader 类"""
+def register_loader(loader_class: Type[LoaderBase], primary: bool = False):
+    """注册一个 Loader 类
+
+    Args:
+        loader_class: Loader 类
+        primary: 是否为首选 Loader（MarkItDown 层），默认为降级层
+    """
     _loader_classes.append(loader_class)
     instance = loader_class()
+    target = _primary_loaders if primary else _fallback_loaders
     for ext in loader_class.extensions:
-        _loaders[ext.lower()] = instance
-    log.debug(f"注册 Loader: {loader_class.__name__} → {loader_class.extensions}")
+        target[ext.lower()] = instance
+    layer = "首选" if primary else "降级"
+    log.debug(f"注册 Loader [{layer}]: {loader_class.__name__} → {loader_class.extensions}")
 
 
 def get_loader(ext: str) -> Optional[LoaderBase]:
-    """根据扩展名获取 Loader"""
-    return _loaders.get(ext.lower())
+    """根据扩展名获取 Loader（首选优先）"""
+    loader = _primary_loaders.get(ext.lower())
+    if loader:
+        return loader
+    return _fallback_loaders.get(ext.lower())
 
 
 def load_file(filepath: str, base_path: str, category: str = "") -> Optional[LoadedDocument]:
-    """根据扩展名自动选择加载器"""
+    """根据扩展名自动选择加载器（双层降级）
+
+    优先使用 MarkItDown 转换，失败则降级到原生 Loader。
+    """
     ext = os.path.splitext(filepath)[1].lower()
-    loader = get_loader(ext)
-    if loader is None:
-        return None
-    return loader.load(filepath, base_path)
+
+    # 1. 尝试 MarkItDown 首选层
+    primary = _primary_loaders.get(ext)
+    if primary:
+        try:
+            doc = primary.load(filepath, base_path)
+            if doc is not None:
+                return doc
+        except Exception as e:
+            log.debug(f"首选 Loader 失败，降级: {filepath} ({e})")
+
+    # 2. 降级到原生 Loader
+    fallback = _fallback_loaders.get(ext)
+    if fallback:
+        try:
+            doc = fallback.load(filepath, base_path)
+            if doc is not None:
+                return doc
+        except Exception as e:
+            log.debug(f"降级 Loader 也失败: {filepath} ({e})")
+
+    return None
 
 
 def get_supported_extensions() -> List[str]:
-    """获取所有支持的扩展名"""
-    return list(_loaders.keys())
+    """获取所有支持的扩展名（合并两层）"""
+    all_exts = set(_primary_loaders.keys()) | set(_fallback_loaders.keys())
+    return sorted(all_exts)
+
+
+def get_loader_info() -> Dict:
+    """获取当前 Loader 注册信息（调试用）"""
+    return {
+        "markitdown_available": _markitdown_available,
+        "primary_extensions": sorted(_primary_loaders.keys()),
+        "fallback_extensions": sorted(_fallback_loaders.keys()),
+        "total_extensions": len(set(_primary_loaders.keys()) | set(_fallback_loaders.keys())),
+    }
 
 
 def _get_folder_info(filepath: str, base_path: str) -> tuple:
@@ -117,7 +164,15 @@ def _try_read(filepath: str, encodings: list = None) -> Optional[str]:
 # ── 自动发现 ──
 
 def discover_loaders():
-    """自动发现并注册所有 Loader"""
+    """自动发现并注册所有 Loader（双层架构）
+
+    注册顺序:
+    1. 原生 Loader（降级层）— 始终注册
+    2. MarkItDown Loader（首选层）— 可选，覆盖原生 Loader 支持的格式
+    """
+    global _markitdown_available
+
+    # ── 降级层：原生 Loader ──
     from droprag.loader.text_loader import TextLoader
     register_loader(TextLoader)
 
@@ -170,7 +225,20 @@ def discover_loaders():
     except ImportError:
         pass
 
-    log.info(f"Loader 注册完成: {len(_loaders)} 种扩展名")
+    # ── 首选层：MarkItDown ──
+    try:
+        from droprag.loader.markitdown_loader import MarkItDownLoader
+        register_loader(MarkItDownLoader, primary=True)
+        _markitdown_available = True
+        log.info("MarkItDown 引擎已注册为首选 Loader")
+    except ImportError:
+        _markitdown_available = False
+        log.info("markitdown 未安装，使用原生 Loader 作为唯一引擎")
+
+    primary_count = len(_primary_loaders)
+    fallback_count = len(_fallback_loaders)
+    total = len(set(_primary_loaders.keys()) | set(_fallback_loaders.keys()))
+    log.info(f"Loader 注册完成: 首选 {primary_count} / 降级 {fallback_count} / 总计 {total} 种扩展名")
 
 
 # 模块加载时自动发现
